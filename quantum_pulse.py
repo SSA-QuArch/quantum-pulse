@@ -139,38 +139,73 @@ def call_free_model(title, summary):
 NOTION_VERSION = "2022-06-28"  # stable; works with data-source DB IDs
 
 
+# We look up each database's real columns once, then remember them.
+_SCHEMA_CACHE = {}
+
+
+def _get_schema(data_source_id, headers):
+    """Return {column_name: column_type} for a database, fetched once and cached.
+    This lets us write to whatever the columns are ACTUALLY called, instead of
+    guessing - so a column named 'Name' vs 'Title' can never block a write."""
+    if data_source_id in _SCHEMA_CACHE:
+        return _SCHEMA_CACHE[data_source_id]
+    try:
+        r = requests.get(f"https://api.notion.com/v1/databases/{data_source_id}",
+                         headers=headers, timeout=30)
+        r.raise_for_status()
+        props = r.json().get("properties", {})
+        schema = {name: meta.get("type") for name, meta in props.items()}
+    except Exception as e:
+        log(f"  ! Could not read database schema: {e}")
+        schema = {}
+    _SCHEMA_CACHE[data_source_id] = schema
+    return schema
+
+
 def notion_create_row(data_source_id, item, dry_run=False):
-    """Create one page (row) in the given Notion data source."""
+    """Create one page (row), sending only columns that actually exist."""
     if dry_run:
         log(f"  [dry-run] would write to {data_source_id[:8]}...: {item['title']}")
         return True
 
-    props = {
-        "Title": {"title": [{"text": {"content": item.get("title", "")[:200]}}]},
-        "Summary": {"rich_text": [{"text": {"content": item.get("summary", "")[:1900]}}]},
-        "Section": {"select": {"name": config.SECTION_LABELS.get(item["section"], "Other")}},
-        "Source URL": {"url": item.get("url") or None},
-        "Impact": {"select": {"name": item.get("impact", "Low")}},
-    }
-    # Multi-selects (only add if present)
-    if item.get("entity"):
-        props["Entity"] = {"multi_select": [{"name": e[:90]} for e in item["entity"][:8]]}
-    if item.get("country"):
-        props["Country / Region"] = {"multi_select": [{"name": c[:30]} for c in item["country"][:6]]}
-    if item.get("strategic_tags"):
-        props["Strategic Tag"] = {"multi_select": [{"name": t[:40]} for t in item["strategic_tags"][:4]]}
-    # Funding-specific extras when present
-    if item.get("deadline"):
-        props["Deadline"] = {"date": {"start": item["deadline"]}}
-    if item.get("amount_value"):
-        props["Amount"] = {"number": item["amount_value"]}
-
-    payload = {"parent": {"database_id": data_source_id}, "properties": props}
     headers = {
         "Authorization": f"Bearer {config.NOTION_TOKEN}",
         "Notion-Version": NOTION_VERSION,
         "Content-Type": "application/json",
     }
+
+    schema = _get_schema(data_source_id, headers)
+
+    # Find the title column - it's whatever column has type "title"
+    # (often called "Name" in Notion, sometimes "Title"). We write the
+    # headline there regardless of what it's named.
+    title_col = next((n for n, t in schema.items() if t == "title"), None)
+
+    props = {}
+    if title_col:
+        props[title_col] = {"title": [{"text": {"content": item.get("title", "")[:200]}}]}
+
+    # A helper: only add a column if it exists in this database.
+    def add(col, value):
+        if col in schema:
+            props[col] = value
+
+    add("Summary", {"rich_text": [{"text": {"content": item.get("summary", "")[:1900]}}]})
+    add("Section", {"select": {"name": config.SECTION_LABELS.get(item["section"], "Other")}})
+    add("Source URL", {"url": item.get("url") or None})
+    add("Impact", {"select": {"name": item.get("impact", "Low")}})
+    if item.get("entity"):
+        add("Entity", {"multi_select": [{"name": e[:90]} for e in item["entity"][:8]]})
+    if item.get("country"):
+        add("Country / Region", {"multi_select": [{"name": c[:30]} for c in item["country"][:6]]})
+    if item.get("strategic_tags"):
+        add("Strategic Tag", {"multi_select": [{"name": t[:40]} for t in item["strategic_tags"][:4]]})
+    if item.get("deadline"):
+        add("Deadline", {"date": {"start": item["deadline"]}})
+    if item.get("amount_value"):
+        add("Amount", {"number": item["amount_value"]})
+
+    payload = {"parent": {"database_id": data_source_id}, "properties": props}
     try:
         r = requests.post("https://api.notion.com/v1/pages",
                           headers=headers, json=payload, timeout=30)
