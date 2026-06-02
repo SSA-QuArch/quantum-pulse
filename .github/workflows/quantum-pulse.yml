@@ -1,0 +1,59 @@
+name: Quantum Pulse Agent
+
+# WHEN this runs:
+on:
+  schedule:
+    - cron: "0 */4 * * *"     # the agent: every 4 hours, automatically
+    - cron: "0 6 * * 1"       # the weekly digest: Mondays at 06:00 UTC
+  workflow_dispatch:           # also lets you run it by hand with a button
+
+jobs:
+  run-agent:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get the code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install libraries
+        run: pip install -r requirements.txt
+
+      # Remember what's already been seen between runs (avoids duplicates)
+      - name: Restore memory of seen items
+        uses: actions/cache@v4
+        with:
+          path: seen.json
+          key: quantum-pulse-seen
+
+      - name: Run the agent (reads sources, files into Notion)
+        if: github.event.schedule != '0 6 * * 1'
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+          DB_FUND: ${{ secrets.DB_FUND }}
+          DB_GOV:  ${{ secrets.DB_GOV }}
+          DB_COMP: ${{ secrets.DB_COMP }}
+          DB_ACAD: ${{ secrets.DB_ACAD }}
+          DB_SUPP: ${{ secrets.DB_SUPP }}
+          DB_TAL:  ${{ secrets.DB_TAL }}
+          DB_STD:  ${{ secrets.DB_STD }}
+        run: python quantum_pulse.py
+
+      - name: Build the weekly digest (Mondays only)
+        if: github.event.schedule == '0 6 * * 1'
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+          DB_FUND: ${{ secrets.DB_FUND }}
+          DB_GOV:  ${{ secrets.DB_GOV }}
+          DB_COMP: ${{ secrets.DB_COMP }}
+          DB_ACAD: ${{ secrets.DB_ACAD }}
+          DB_SUPP: ${{ secrets.DB_SUPP }}
+          DB_TAL:  ${{ secrets.DB_TAL }}
+          DB_STD:  ${{ secrets.DB_STD }}
+          DIGEST_PARENT_PAGE: ${{ secrets.DIGEST_PARENT_PAGE }}
+        run: python digest.py
