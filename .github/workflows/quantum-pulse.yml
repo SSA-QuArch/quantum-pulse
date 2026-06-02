@@ -10,6 +10,8 @@ on:
 jobs:
   run-agent:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Get the code
         uses: actions/checkout@v4
@@ -42,6 +44,29 @@ jobs:
           DB_TAL:  ${{ secrets.DB_TAL }}
           DB_STD:  ${{ secrets.DB_STD }}
         run: python quantum_pulse.py
+
+      - name: Build the shareable dashboard
+        if: github.event.schedule != '0 6 * * 1'
+        env:
+          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+          FINNHUB_KEY: ${{ secrets.FINNHUB_KEY }}
+          DB_FUND: ${{ secrets.DB_FUND }}
+          DB_GOV:  ${{ secrets.DB_GOV }}
+          DB_COMP: ${{ secrets.DB_COMP }}
+          DB_ACAD: ${{ secrets.DB_ACAD }}
+          DB_SUPP: ${{ secrets.DB_SUPP }}
+          DB_TAL:  ${{ secrets.DB_TAL }}
+          DB_STD:  ${{ secrets.DB_STD }}
+        run: python build_dashboard.py
+
+      - name: Publish dashboard to the repo
+        if: github.event.schedule != '0 6 * * 1'
+        run: |
+          git config user.name "Quantum Pulse Bot"
+          git config user.email "bot@quantumpulse.local"
+          git add docs/index.html
+          git commit -m "Update dashboard" || echo "no changes"
+          git push
 
       - name: Build the weekly digest (Mondays only)
         if: github.event.schedule == '0 6 * * 1'
