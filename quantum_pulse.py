@@ -100,10 +100,16 @@ impact: High = sector-shaping; Medium = notable; Low = routine.
 Be conservative. Never invent facts not present in the input."""
 
 
-def call_free_model(title, summary):
-    """Send one item to Groq's free API. Returns a dict (parsed JSON) or None."""
+class QuotaExhausted(Exception):
+    """Raised when the free model's daily limit is hit, so we stop cleanly."""
+    pass
+
+
+def call_free_model(title, summary, _attempt=1):
+    """Send one item to the free model. Retries at most twice on rate-limit,
+    then gives up for the whole run instead of looping forever."""
     headers = {
-        "Authorization": f"Bearer {config.GROQ_API_KEY}",
+        "Authorization": f"Bearer {config.API_KEY}",
         "Content-Type": "application/json",
     }
     payload = {
@@ -116,17 +122,21 @@ def call_free_model(title, summary):
         ],
     }
     try:
-        r = requests.post(
-            "https://api.groq.com/openai/v1/chat/completions",
-            headers=headers, json=payload, timeout=40,
-        )
+        r = requests.post(config.API_URL, headers=headers, json=payload, timeout=40)
         if r.status_code == 429:
-            log("  ! Rate limited by Groq. Waiting 20s...")
+            if _attempt >= 3:
+                # We've retried twice and still blocked: the daily quota is
+                # almost certainly gone. Stop the whole run cleanly.
+                log("  ! Rate limit persists after retries - daily quota likely exhausted.")
+                raise QuotaExhausted()
+            log(f"  ! Rate limited. Waiting 20s (attempt {_attempt}/2)...")
             time.sleep(20)
-            return call_free_model(title, summary)  # retry once
+            return call_free_model(title, summary, _attempt + 1)
         r.raise_for_status()
         content = r.json()["choices"][0]["message"]["content"]
         return json.loads(content)
+    except QuotaExhausted:
+        raise
     except Exception as e:
         log(f"  ! Model call failed: {e}")
         return None
@@ -286,8 +296,13 @@ def main():
     seen = load_seen()
     new_count, skip_count, irrelevant_count = 0, 0, 0
     request_times = []  # for throttling under 30 req/min
+    run_start = time.time()
+    MAX_RUN_SECONDS = 45 * 60  # hard stop after 45 min, no matter what
+    stop_reason = None
 
     for source in config.SOURCES:
+        if stop_reason:
+            break
         if not source.get("active", True):
             continue
         log(f"Reading source: {source['name']} ({source['type']})")
@@ -301,6 +316,11 @@ def main():
             continue
 
         for raw in raw_items:
+            # Safety net: never let one run exceed the time budget.
+            if time.time() - run_start > MAX_RUN_SECONDS:
+                stop_reason = "time budget reached (45 min)"
+                break
+
             url = raw.get("url", "")
             if not url or url in seen:
                 skip_count += 1
@@ -328,7 +348,11 @@ def main():
                     time.sleep(max(wait, 0))
                 request_times.append(time.time())
 
-                parsed = call_free_model(raw["title"], raw["summary"])
+                try:
+                    parsed = call_free_model(raw["title"], raw["summary"])
+                except QuotaExhausted:
+                    stop_reason = "daily model quota exhausted"
+                    break
                 if not parsed or not parsed.get("relevant"):
                     irrelevant_count += 1
                     seen.add(url)  # remember, so we don't re-ask
@@ -351,6 +375,8 @@ def main():
     if not args.dry_run:
         save_seen(seen)
 
+    if stop_reason:
+        log(f"Stopped early: {stop_reason}. Progress saved; will resume next run.")
     log("=" * 60)
     log(f"DONE. New: {new_count} | Skipped(seen): {skip_count} | "
         f"Filtered as irrelevant: {irrelevant_count}")
