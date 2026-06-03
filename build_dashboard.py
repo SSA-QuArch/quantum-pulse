@@ -152,8 +152,10 @@ def build_html(items, quotes):
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta http-equiv="refresh" content="300">
 <title>Quantum Pulse</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Questrial&display=swap" rel="stylesheet">
 <style>
-body{{margin:0; background:#0A0820; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; color:#E8E6F5;}}
+body{{margin:0; background:#0A0820; font-family:'Century Gothic','Questrial','Avenir Next','Avenir',sans-serif; color:#E8E6F5;}}
 .wrap{{max-width:920px; margin:0 auto; padding:1.5rem 1rem 3rem;}}
 .card{{background:#1A1640; border-radius:11px; padding:1rem 1.1rem;}}
 a:hover{{border-color:#534AB7 !important;}}
@@ -163,9 +165,9 @@ a:hover{{border-color:#534AB7 !important;}}
 
 <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; margin-bottom:1.3rem;">
 <div style="display:flex; align-items:center; gap:11px;">
-<div style="width:36px; height:36px; border-radius:9px; background:#2A2358; display:flex; align-items:center; justify-content:center; color:#AFA9EC; font-size:20px;">&#9883;</div>
-<div><p style="margin:0; font-size:17px; font-weight:500; color:#F4F3FB;">Quantum Pulse</p>
-<p style="margin:0; font-size:12px; color:#8B86B8;">Dr. Shahaf Asban &middot; worldwide quantum intelligence</p></div></div>
+<div style="width:48px; height:48px; border-radius:11px; background:#2A2358; display:flex; align-items:center; justify-content:center; color:#AFA9EC; font-size:27px;">&#9883;</div>
+<div><p style="margin:0; font-size:28px; font-weight:700; letter-spacing:0.5px; color:#F4F3FB;">Quantum Pulse</p>
+<p style="margin:2px 0 0; font-size:16px; font-weight:500; color:#AFA9EC;">Dr. Shahaf Asban &middot; <span style="color:#8B86B8;">worldwide quantum intelligence</span></p></div></div>
 <span style="font-size:11px; color:#8B86B8;">&#128260; auto-refreshes &middot; updated {updated}</span></div>
 
 <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:10px; margin-bottom:1.3rem;">
