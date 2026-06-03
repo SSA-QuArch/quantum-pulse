@@ -21,8 +21,23 @@ GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "gsk_PASTE_YOUR_GROQ_KEY_HERE")
 # IMPORTANT: open each database in Notion -> ••• -> Connections -> add your integration
 NOTION_TOKEN = os.environ.get("NOTION_TOKEN", "secret_PASTE_YOUR_NOTION_TOKEN_HERE")
 
-# Which free model to use. The 70B is smartest; switch to the 8B if you hit limits.
-MODEL = os.environ.get("MODEL", "llama-3.3-70b-versatile")   # or "llama-3.1-8b-instant"
+# -----------------------------------------------------------------------------
+# MODEL PROVIDER  -  switch between Groq and Gemini in one place.
+# Both are free and OpenAI-compatible. Gemini has a higher daily limit.
+# To use Gemini: set PROVIDER="gemini" and add a GEMINI_API_KEY secret
+#   (free key, no card, at https://aistudio.google.com/apikey)
+# -----------------------------------------------------------------------------
+PROVIDER = os.environ.get("PROVIDER", "groq")        # "groq" or "gemini"
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
+
+if PROVIDER == "gemini":
+    API_URL = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
+    API_KEY = GEMINI_API_KEY
+    MODEL = os.environ.get("MODEL", "gemini-2.0-flash")
+else:  # groq
+    API_URL = "https://api.groq.com/openai/v1/chat/completions"
+    API_KEY = GROQ_API_KEY
+    MODEL = os.environ.get("MODEL", "llama-3.3-70b-versatile")  # or "llama-3.1-8b-instant"
 
 
 # -----------------------------------------------------------------------------
