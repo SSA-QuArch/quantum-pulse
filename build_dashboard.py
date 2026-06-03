@@ -150,6 +150,7 @@ def build_html(items, quotes):
     return f"""<!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="refresh" content="300">
 <title>Quantum Pulse</title>
 <style>
 body{{margin:0; background:#0A0820; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; color:#E8E6F5;}}
@@ -165,7 +166,7 @@ a:hover{{border-color:#534AB7 !important;}}
 <div style="width:36px; height:36px; border-radius:9px; background:#2A2358; display:flex; align-items:center; justify-content:center; color:#AFA9EC; font-size:20px;">&#9883;</div>
 <div><p style="margin:0; font-size:17px; font-weight:500; color:#F4F3FB;">Quantum Pulse</p>
 <p style="margin:0; font-size:12px; color:#8B86B8;">Dr. Shahaf Asban &middot; worldwide quantum intelligence</p></div></div>
-<span style="font-size:11px; color:#8B86B8;">updated {updated}</span></div>
+<span style="font-size:11px; color:#8B86B8;">&#128260; auto-refreshes &middot; updated {updated}</span></div>
 
 <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:10px; margin-bottom:1.3rem;">
 <div class="card" style="padding:0.7rem 0.9rem;"><p style="margin:0; font-size:11px; color:#8B86B8;">Items this week</p><p style="margin:3px 0 0; font-size:21px; font-weight:500; color:#F4F3FB;">{len(items)}</p></div>
